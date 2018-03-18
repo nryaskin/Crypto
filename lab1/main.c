@@ -51,11 +51,11 @@ void main(int argc, char* argv[]) {
         exit(1);        
     } else {
             if(argv[1][0] == 'd') {
-                flag = 1;
+                flag = -1;
                 //decrypt(&tmp);
             }
             else {
-                flag = -1;
+                flag = 1;
                 //encrypt(&tmp);
             }
             uint64_t num_key =  str_to_num64(key);
@@ -124,7 +124,7 @@ void generate_keys(uint64_t key, block *b,uint8_t flag) {
     uint32_t* result_keys = malloc(sizeof( uint32_t ) * ROUNDS);
     const uint32_t mask = 0;
     uint32_t key_32;
-    if(flag > 1) {
+    if(flag == 1) {
 
         for(j = 0; j < ROUNDS; j++) {
             key = right_shift64(key, j * 3);
