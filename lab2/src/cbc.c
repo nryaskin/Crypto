@@ -90,6 +90,7 @@ void main(int argc, char* argv[]) {
 	}	
     }
 
+    cp_block(cypher, swap);
     
     if((fin = fopen(argv[2], "rb")) == NULL) {
         printf("Cannot read input file: %s", argv[1]);
@@ -148,7 +149,7 @@ void cp_block(block to, block from) {
 
 void prepare_block(block *b, block t) {
     bits_to_str(str_to_num32(b->left)^str_to_num32(t.left), b->left);
-    bits_to_str(str_to_num32(b->left)^str_to_num32(t.left), b->left);
+    bits_to_str(str_to_num32(b->right)^str_to_num32(t.right), b->right);
 }
 uint64_t str_to_num64(unsigned char* str){
     const uint64_t mask = 0;
