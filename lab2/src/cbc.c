@@ -21,6 +21,7 @@ uint64_t str_to_num64(unsigned char*);
 void prepare_block(block* , block);
 void cp_block(block, block);
 uint64_t prepare_iv(void);
+void bits_to_str(uint32_t, char*);
 
 void main(int argc, char* argv[]) {
    
@@ -49,28 +50,51 @@ void main(int argc, char* argv[]) {
         exit(1);
     }
 
-    // init iv here then write it to file
-    init_vector = prepare_iv();
-    if((fiv = fopen(argv[5], "wb")) == NULL) {
-        printf("Cannot wirte to file: %s", argv[5]);
-        exit(1);
+    flag = (argv[1][0] == 'e');        
+    if(flag){
+        // init iv here then write it to file
+        init_vector = prepare_iv();
+        if((fiv = fopen(argv[5], "wb")) == NULL) {
+	    printf("Cannot wirte to file: %s", argv[5]);
+            exit(1);
+        }
+        else {
+	    char iv[9];
+	    uint32_t mask = 0;
+            bits_to_str((uint32_t)(mask | init_vector), swap.right);
+            bits_to_str((uint32_t)(mask | init_vector >> 32), swap.left);	
+	    fprintf(fiv, "%s", swap.left);
+	    fprintf(fiv, "%s", swap.right);
+        }   
     }
-    else {
-	char iv[9];
-	uint32_t mask = 0;
-	bits_to_str((uint32_t)(mask | init_vector), swap.right);
-        bits_to_str((uint32_t)(mask | init_vector >> 32), swap.left);	
-	fprintf(fiv, "%s", swap.left);
-	fprintf(fiv, "%s", swap.right);
-    }   
-    
+    else 
+    {
+	if((fiv = fopen(argv[5], "rb")) == NULL) {
+	    printf("Cannot wirte to file: %s", argv[5]);
+            exit(1);
+        }
+        else 
+	{
+            if(fgets(swap.left,SUBBLOCK_LENGTH, fiv) != NULL){
+		    if(fgets(swap.right, SUBBLOCK_LENGTH, fiv) == NULL)
+		    {
+			printf("Some problems occured: %s", argv[5]);
+			exit(1);
+		    }
+	    }
+	    else 
+	    {
+                printf("Some problems occured: %s", argv[5]);
+		exit(1);
+	    }
+	}	
+    }
 
     
     if((fin = fopen(argv[2], "rb")) == NULL) {
         printf("Cannot read input file: %s", argv[1]);
         exit(1);        
     } else {
-            flag = (argv[1][0] == 'e');        
             uint64_t num_key =  str_to_num64(key);
             generate_keys(num_key, &plain, flag);
 
