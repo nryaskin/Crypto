@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.5)
+project(crypto_lab2)
+include_directories(inc)
+set(SOURCE_BIN src/main.c)
+set(SOURCE_LIB src/mt19937-64.c)
+add_library(mt19937-64 STATIC ${SOURCE_LIB})
+add_executable(cbc ${SOURCE_BIN})
+target_link_libraries(cbc mt19937-64)
