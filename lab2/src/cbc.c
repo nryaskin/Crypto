@@ -22,10 +22,9 @@ void prepare_block(block* , block);
 void cp_block(block, block);
 uint64_t prepare_iv(void);
 void bits_to_str(uint32_t, char*);
+char *read_fp(unsigned char*, unsigned int ,FILE*);
 
 void main(int argc, char* argv[]) {
-   
-
     FILE *fin, *fout, *fkey, *fiv;
     unsigned char in_str[SUBBLOCK_LENGTH], key[KEY_LENGTH];
     uint8_t flag;
@@ -75,8 +74,8 @@ void main(int argc, char* argv[]) {
         }
         else 
 	{
-            if(fgets(swap.left,SUBBLOCK_LENGTH, fiv) != NULL){
-		    if(fgets(swap.right, SUBBLOCK_LENGTH, fiv) == NULL)
+            if(read_fp(swap.left,SUBBLOCK_LENGTH, fiv) != NULL){
+		    if(read_fp(swap.right, SUBBLOCK_LENGTH, fiv) == NULL)
 		    {
 			printf("Some problems occured: %s", argv[5]);
 			exit(1);
@@ -98,38 +97,59 @@ void main(int argc, char* argv[]) {
     } else {
             uint64_t num_key =  str_to_num64(key);
             generate_keys(num_key, &plain, flag);
-
-         while(!feof(fin)){
-            if(fgets(plain.left,SUBBLOCK_LENGTH, fin) != NULL){
-		    fgets(plain.right, SUBBLOCK_LENGTH, fin);
-		    if (flag) {
-		        prepare_block(&plain, cypher); 
+	    do {
+		    if(read_fp(plain.left,SUBBLOCK_LENGTH, fin) != NULL){
+			    read_fp(plain.right, SUBBLOCK_LENGTH, fin);
+			    if (flag) {
+				prepare_block(&plain, cypher); 
+			    }
+			    else {
+				cp_block(swap, plain);
+			    }
+			    feisteil(&plain);
+			    if(!flag) {
+				prepare_block(&plain, cypher);
+			    }
+			    fprintf(fout, "%s", plain.left);
+			    fprintf(fout, "%s", plain.right);
+			    if(flag) {
+				cp_block(cypher, plain);
+			    }
+			    else {
+				cp_block(cypher, swap);
+			    }
 		    }
-		    else {
-                        cp_block(swap, plain);
-		    }
-		    feisteil(&plain);
-		    if(!flag) {
-                        prepare_block(&plain, cypher);
-		    }
-		    fprintf(fout, "%s", plain.left);
-		    fprintf(fout, "%s", plain.right);
-		    if(flag) {
-                        cp_block(cypher, plain);
-		    }
-		    else {
-			cp_block(cypher, swap);
-		    }
-            }
-            else 
-                break;
-        }
+		    else 
+			break;
+	    } while(!feof(fin));
    }
 
     fclose(fin);
     fclose(fout);
     fclose(fkey);
     printf("Hello, world!");
+
+}
+
+char *read_fp(unsigned char* out, unsigned int length, FILE* fp) {
+        char* result = NULL;
+        unsigned char ch;
+	uint32_t tmp = 0;
+	int c = 0;
+	for(int i = 0; i < length - 1; i++) {
+	    c = fgetc(fp);
+	    if (c != EOF) {
+                out[i] = (char)c;
+                tmp++;
+	    }
+	    else {
+                out[i] = '0';
+	    }
+	}
+	if(tmp != 0)
+	    result = out;
+	out[length - 1] = '\0';
+	return result;
 
 }
 
@@ -191,7 +211,7 @@ void generate_keys(uint64_t key, block *b,uint8_t flag) {
     uint32_t* result_keys = malloc(sizeof( uint32_t ) * ROUNDS);
     const uint32_t mask = 0;
     uint32_t key_32;
-    if(flag == 1) {
+    if(flag) {
 
         for(j = 0; j < ROUNDS; j++) {
             key = right_shift64(key, j * 3);
