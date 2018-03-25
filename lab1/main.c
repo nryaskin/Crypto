@@ -17,7 +17,27 @@ void generate_keys(uint64_t, block* ,uint8_t);
 void feisteil(block*);
 uint32_t str_to_num32(unsigned char*);
 uint64_t str_to_num64(unsigned char*);
+char *read_fp(unsigned char* out, unsigned int length, FILE* fp) {
+        char* result = NULL;
+        unsigned char ch;
+	uint32_t tmp = 0;
+	int c = 0;
+	for(int i = 0; i < length - 1; i++) {
+	    c = fgetc(fp);
+	    if (c != EOF) {
+                out[i] = (unsigned char)c;
+                tmp++;
+	    }
+	    else {
+                out[i] = '\0';
+	    }
+	}
+	if(tmp != 0)
+	    result = out;
+	out[length - 1] = '\0';
+	return result;
 
+}
 
 void main(int argc, char* argv[]) {
    
@@ -35,7 +55,7 @@ void main(int argc, char* argv[]) {
         printf("Cannot read key file: %s", argv[3]);
         exit(1);
     } else {
-        if( fgets(key, KEY_LENGTH, fkey) == NULL ) {
+        if( read_fp(key, KEY_LENGTH, fkey) == NULL ) {
             printf("No key in key file : %s", argv[3]);
             exit(1);
         }
@@ -64,8 +84,8 @@ void main(int argc, char* argv[]) {
             //fread(&tmp.left, sizeof( uint32_t ), 1, fin);
             //fread(&tmp.right, sizeof( uint32_t ), 1, fin);
             // gfets returns NULL if read nothing
-            if(fgets(tmp.left,SUBBLOCK_LENGTH, fin) != NULL){
-            fgets(tmp.right, SUBBLOCK_LENGTH, fin);
+            if(read_fp(tmp.left,SUBBLOCK_LENGTH, fin) != NULL){
+            read_fp(tmp.right, SUBBLOCK_LENGTH, fin);
             feisteil(&tmp);
             fprintf(fout, "%s", tmp.left);
             fprintf(fout, "%s", tmp.right);
@@ -80,8 +100,6 @@ void main(int argc, char* argv[]) {
     fclose(fin);
     fclose(fout);
     fclose(fkey);
-    printf("Hello, world!");
-
 }
 
 uint64_t str_to_num64(unsigned char* str){
