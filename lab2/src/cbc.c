@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -19,10 +18,10 @@ void feisteil(block*);
 uint32_t str_to_num32(unsigned char*);
 uint64_t str_to_num64(unsigned char*);
 void prepare_block(block* , block);
-void cp_block(block, block);
+void cp_block(block*, block);
 uint64_t prepare_iv(void);
-void bits_to_str(uint32_t, char*);
-char *read_fp(unsigned char*, unsigned int ,FILE*);
+void bits_to_str(uint32_t, unsigned char*);
+void read_fp(unsigned char*, unsigned int ,FILE*);
 
 void main(int argc, char* argv[]) {
     FILE *fin, *fout, *fkey, *fiv;
@@ -35,7 +34,7 @@ void main(int argc, char* argv[]) {
         exit(1);
     }
 
-    if((fkey = fopen(argv[4], "r")) == NULL) {
+    if((fkey = fopen(argv[4], "rb")) == NULL) {
         printf("Cannot read key file: %s", argv[4]);
         exit(1);
     } else {
@@ -62,8 +61,8 @@ void main(int argc, char* argv[]) {
 	    uint32_t mask = 0;
             bits_to_str((uint32_t)(mask | init_vector), swap.right);
             bits_to_str((uint32_t)(mask | init_vector >> 32), swap.left);	
-	    fprintf(fiv, "%s", swap.left);
-	    fprintf(fiv, "%s", swap.right);
+	    fwrite(swap.left, SUBBLOCK_LENGTH - 1, 1, fiv);
+	    fwrite(swap.right, SUBBLOCK_LENGTH - 1, 1, fiv);
         }   
     }
     else 
@@ -74,22 +73,12 @@ void main(int argc, char* argv[]) {
         }
         else 
 	{
-            if(read_fp(swap.left,SUBBLOCK_LENGTH, fiv) != NULL){
-		    if(read_fp(swap.right, SUBBLOCK_LENGTH, fiv) == NULL)
-		    {
-			printf("Some problems occured: %s", argv[5]);
-			exit(1);
-		    }
-	    }
-	    else 
-	    {
-                printf("Some problems occured: %s", argv[5]);
-		exit(1);
-	    }
+            read_fp(swap.left,SUBBLOCK_LENGTH, fiv);
+	    read_fp(swap.right, SUBBLOCK_LENGTH, fiv);
 	}	
     }
 
-    cp_block(cypher, swap);
+    cp_block(&cypher, swap);
     
     if((fin = fopen(argv[2], "rb")) == NULL) {
         printf("Cannot read input file: %s", argv[1]);
@@ -98,59 +87,43 @@ void main(int argc, char* argv[]) {
             uint64_t num_key =  str_to_num64(key);
             generate_keys(num_key, &plain, flag);
 	    do {
-		    if(read_fp(plain.left,SUBBLOCK_LENGTH, fin) != NULL){
-			    read_fp(plain.right, SUBBLOCK_LENGTH, fin);
+		read_fp(plain.left,SUBBLOCK_LENGTH, fin);
+	        read_fp(plain.right, SUBBLOCK_LENGTH, fin);
 			    if (flag) {
 				prepare_block(&plain, cypher); 
 			    }
 			    else {
-				cp_block(swap, plain);
+				cp_block(&swap, plain);
 			    }
 			    feisteil(&plain);
 			    if(!flag) {
 				prepare_block(&plain, cypher);
 			    }
-			    fprintf(fout, "%s", plain.left);
-			    fprintf(fout, "%s", plain.right);
+			    fwrite(plain.left, SUBBLOCK_LENGTH - 1, 1, fout);
+			    fwrite(plain.right, SUBBLOCK_LENGTH - 1, 1, fout);
 			    if(flag) {
-				cp_block(cypher, plain);
+				cp_block(&cypher, plain);
 			    }
 			    else {
-				cp_block(cypher, swap);
+				cp_block(&cypher, swap);
 			    }
-		    }
-		    else 
-			break;
 	    } while(!feof(fin));
    }
 
     fclose(fin);
     fclose(fout);
     fclose(fkey);
-    printf("Hello, world!");
-
 }
 
-char *read_fp(unsigned char* out, unsigned int length, FILE* fp) {
+void read_fp(unsigned char* out, unsigned int length, FILE* fp) {
         char* result = NULL;
         unsigned char ch;
 	uint32_t tmp = 0;
 	int c = 0;
-	for(int i = 0; i < length - 1; i++) {
-	    c = fgetc(fp);
-	    if (c != EOF) {
-                out[i] = (char)c;
-                tmp++;
-	    }
-	    else {
-                out[i] = '0';
-	    }
+	for(int i = 0; i < length; i++){
+            out[i] = '\0';
 	}
-	if(tmp != 0)
-	    result = out;
-	out[length - 1] = '\0';
-	return result;
-
+	fread(out, length - 1, 1, fp);  
 }
 
 uint64_t prepare_iv(void) {
@@ -160,16 +133,18 @@ uint64_t prepare_iv(void) {
 }
 
 
-void cp_block(block to, block from) {
+void cp_block(block *to, block from) {
    for(int i = 0; i < SUBBLOCK_LENGTH; i++) {
-       	to.left[i] = from.left[i];
-        to.right[i] = from.right[i];
+       	to->left[i] = from.left[i];
+        to->right[i] = from.right[i];
    }
 }
 
 void prepare_block(block *b, block t) {
-    bits_to_str(str_to_num32(b->left)^str_to_num32(t.left), b->left);
-    bits_to_str(str_to_num32(b->right)^str_to_num32(t.right), b->right);
+   for(int i = 0; i < SUBBLOCK_LENGTH - 1; i++ ) {
+        b->left[i] ^= t.left[i];
+	b->right[i] ^= t.right[i];
+    } 
 }
 uint64_t str_to_num64(unsigned char* str){
     const uint64_t mask = 0;
@@ -225,18 +200,19 @@ void generate_keys(uint64_t key, block *b,uint8_t flag) {
 
             key = right_shift64(key, j * 3);
             key_32 = ( mask | key);
-            b->keys[ROUNDS - j - 1] = key;           
+            b->keys[ROUNDS - j - 1] = key_32;           
         } 
     
     }
 }
 
-void bits_to_str(uint32_t in, char* out_str) {
+void bits_to_str(uint32_t in,unsigned char* out_str) {
     unsigned char mask = 0;
     out_str[0] =(unsigned char) ((in >> 24) | mask);
     out_str[1] = (unsigned char)((in >> 16) | mask);
     out_str[2] = (unsigned char)((in >> 8) | mask);
     out_str[3] = (unsigned char)(in | mask);
+    out_str[4] = '\0';
 }
 
 void feisteil(block *b) {
